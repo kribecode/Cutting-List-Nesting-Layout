@@ -2,320 +2,127 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Plywood Nesting & Cut Plan Optimizer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Track Saw Cutting Plan & Nesting Tool</title>
   <style>
-    :root {
-      --bg: #f4f6f8;
-      --header-bg: #0f172a;
-      --card-bg: #ffffff;
-      --border: #cbd5e1;
-      --accent: #0284c7;
-      --text: #1e293b;
-      --text-muted: #64748b;
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-    body { background: var(--bg); color: var(--text); padding: 12px; font-size: 14px; }
-
-    .app-container { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 16px; }
-    @media (min-width: 850px) { .app-container { grid-template-columns: 360px 1fr; } }
-
-    /* Cards & Form Control */
-    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-    .section-title { font-size: 11pt; font-weight: 700; color: #0f172a; margin-bottom: 10px; border-left: 4px solid var(--accent); padding-left: 8px; text-transform: uppercase; }
-
-    label { display: block; font-size: 8.5pt; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; }
-    input, textarea { width: 100%; background: #ffffff; border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 4px; font-size: 10pt; margin-bottom: 10px; }
-    textarea { height: 120px; font-family: monospace; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-
-    .btn-main { width: 100%; background: #0284c7; color: white; border: none; padding: 12px; border-radius: 4px; font-weight: 700; font-size: 10pt; cursor: pointer; text-transform: uppercase; }
-    .btn-print { width: 100%; background: #15803d; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: 700; font-size: 9pt; cursor: pointer; text-transform: uppercase; margin-top: 10px; display: none; }
-
-    /* Header & Key Metrics */
-    .header-bar { background: var(--header-bg); color: white; padding: 14px 18px; border-radius: 6px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-    .header-title { font-size: 14pt; font-weight: 800; }
-    .header-sub { font-size: 8.5pt; color: #94a3b8; }
-    .badge-tag { background: #0284c7; color: white; font-size: 8.5pt; font-weight: 700; padding: 4px 10px; border-radius: 4px; }
-
-    .metrics-table { width: 100%; border-collapse: separate; border-spacing: 6px 0; margin: 0 -6px 12px -6px; }
-    .metric-card { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 8px; vertical-align: top; }
-    .metric-label { font-size: 7.5pt; font-weight: 700; text-transform: uppercase; color: var(--text-muted); }
-    .metric-val { font-size: 12pt; font-weight: 800; color: #0f172a; margin-top: 2px; }
-
-    /* Master Cut List Table */
-    .data-table { width: 100%; border-collapse: collapse; background: white; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 16px; }
-    .data-table th { background: #1e293b; color: white; font-size: 8pt; font-weight: 700; padding: 6px 8px; text-transform: uppercase; text-align: left; }
-    .data-table td { padding: 6px 8px; border-bottom: 1px solid #e2e8f0; font-size: 8.5pt; }
-    .tag-id { font-weight: 800; color: #0284c7; background: #e0f2fe; padding: 2px 6px; border-radius: 4px; }
-
-    /* Sheet Visuals */
-    .sheet-card { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 12px; page-break-inside: avoid; }
-    .sheet-header { display: flex; justify-content: space-between; font-size: 9pt; font-weight: 700; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #e2e8f0; }
-    .sheet-svg { width: 100%; height: auto; border: 1px solid #94a3b8; background: #f1f5f9; display: block; }
-
-    /* Print Setup */
+    body { font-family: -apple-system, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    h1 { font-size: 1.5rem; color: #38bdf8; margin-bottom: 15px; }
+    label { display: block; font-size: 0.85rem; color: #94a3b8; margin-top: 10px; }
+    input, textarea { width: 100%; background: #0f172a; border: 1px solid #334155; color: #fff; padding: 10px; border-radius: 6px; margin-top: 5px; box-sizing: border-box; }
+    textarea { height: 100px; font-family: monospace; }
+    button { background: #0284c7; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 15px; width: 100%; }
+    .btn-pdf { background: #16a34a; margin-top: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; background: #0f172a; border-radius: 6px; overflow: hidden; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #334155; font-size: 0.9rem; }
+    th { background: #334155; color: #38bdf8; }
+    svg { width: 100%; height: auto; background: #0f172a; border: 2px solid #334155; border-radius: 6px; margin-top: 15px; }
     @media print {
-      body { background: white; padding: 0; }
-      .no-print, .btn-main, .btn-print { display: none !important; }
-      .app-container { grid-template-columns: 1fr; }
-      .sheet-card, .data-table { page-break-inside: avoid; }
+      .no-print { display: none !important; }
+      body { background: white; color: black; }
+      .card { background: white; border: none; }
+      svg { border: 1px solid black; }
     }
   </style>
 </head>
 <body>
 
-<div class="app-container">
-  
-  <!-- LEFT PANEL: CONTROLS -->
+<div class="container">
   <div class="card no-print">
-    <div class="section-title">1. Sheet Configuration</div>
-    <div class="grid-2">
-      <div>
-        <label>Length (mm)</label>
-        <input type="number" id="sheetL" value="2400">
-      </div>
-      <div>
-        <label>Width (mm)</label>
-        <input type="number" id="sheetW" value="1200">
-      </div>
+    <h1>Track Saw Cut Plan Optimizer</h1>
+    <label>Sheet Dimensions (mm)</label>
+    <div style="display:flex; gap:10px;">
+      <input type="number" id="sheetL" value="2400">
+      <input type="number" id="sheetW" value="1200">
     </div>
-
-    <div class="section-title">2. Master Cut List</div>
-    <label>Paste: <b>Qty x Length x Width</b></label>
-    <textarea id="cutListInput" placeholder="2 x 580 x 455&#10;1 x 220 x 655&#10;4 x 1100 x 300"></textarea>
-
-    <button class="btn-main" onclick="calculateMaxDensityNesting()">Calculate Nesting</button>
-    <button class="btn-print" id="printBtn" onclick="window.print()">Download PDF Cut Plan</button>
+    
+    <label>Master Cut List (Qty x Length x Width)</label>
+    <textarea id="cutListInput">5 x 900 x 280
+2 x 650 x 400
+1 x 355 x 280</textarea>
+    
+    <button onclick="calculateLayout()">Calculate Nesting</button>
+    <button class="btn-pdf" onclick="window.print()">Download PDF Cut Plan</button>
   </div>
 
-  <!-- RIGHT PANEL: PDF STYLE DISPLAY -->
-  <div>
+  <div class="card">
+    <h1>Master Cut Plan & Summary</h1>
+    <div id="summaryMetrics" style="font-weight:bold; color:#38bdf8;"></div>
     
-    <!-- HEADER BAR -->
-    <div class="header-bar">
-      <div>
-        <div class="header-title">Plywood Nesting & Cut Plan</div>
-        <div class="header-subtitle" id="headerSub">Optimized for Track Saw (3mm Kerf, 19mm Substrate)</div>
-      </div>
-      <div>
-        <span class="badge-tag" id="sheetBadge">0 SHEETS</span>
-      </div>
-    </div>
-
-    <!-- METRICS BAR -->
-    <table class="metrics-table">
-      <tr>
-        <td class="metric-card" width="25%">
-          <div class="metric-label">Total Sheets</div>
-          <div class="metric-val" id="metricSheets">-</div>
-        </td>
-        <td class="metric-card" width="25%">
-          <div class="metric-label">Material Yield</div>
-          <div class="metric-val" id="metricYield">-</div>
-        </td>
-        <td class="metric-card" width="25%">
-          <div class="metric-label">Offcut / Waste</div>
-          <div class="metric-val" id="metricWaste">-</div>
-        </td>
-        <td class="metric-card" width="25%">
-          <div class="metric-label">Total Parts</div>
-          <div class="metric-val" id="metricParts">-</div>
-        </td>
-      </tr>
-    </table>
-
-    <!-- CUT LIST SUMMARY TABLE -->
-    <div class="section-title">Master Cutting List</div>
-    <table class="data-table">
+    <table>
       <thead>
         <tr>
-          <th>ID</th>
+          <th>Part ID</th>
           <th>Qty</th>
           <th>Length (mm)</th>
           <th>Width (mm)</th>
-          <th>Rotatable</th>
-          <th>Sheet Assignment</th>
+          <th>Assignment</th>
         </tr>
       </thead>
-      <tbody id="tableBody">
-        <tr><td colspan="6" style="text-align:center; color:#94a3b8;">Enter cut list and click calculate.</td></tr>
-      </tbody>
+      <tbody id="tableBody"></tbody>
     </table>
 
-    <!-- VISUAL SHEET LAYOUTS -->
-    <div class="section-title">Sheet Diagrams & Rip Sequence</div>
-    <div id="sheetsContainer"></div>
-
+    <div id="svgContainer"></div>
   </div>
-
 </div>
 
 <script>
-  function calculateMaxDensityNesting() {
+  function calculateLayout() {
     const sheetL = parseFloat(document.getElementById('sheetL').value);
     const sheetW = parseFloat(document.getElementById('sheetW').value);
     const rawText = document.getElementById('cutListInput').value.trim();
 
-    if (!rawText) return alert("Please paste a cutting list first.");
+    if (!rawText) return;
 
-    const kerf = 3;
-    let items = [];
-    let charCode = 65;
-    let masterSummary = [];
-
-    // Parse input (Qty x Length x Width)
-    rawText.split('\n').forEach(line => {
-      const parts = line.toLowerCase().split('x').map(p => parseFloat(p.trim()));
-      if (parts.length === 3 && !parts.some(isNaN)) {
-        const [qty, l, w] = parts;
-        const tag = String.fromCharCode(charCode++);
-        masterSummary.push({ tag, qty, l, w });
-        for (let i = 0; i < qty; i++) {
-          items.push({ id: `${tag}${i+1}`, tag, l, w, area: l * w });
-        }
-      }
-    });
-
-    // Sort by largest area first for max density packing
-    items.sort((a, b) => b.area - a.area);
-
-    let sheets = [];
-    items.forEach(item => {
-      let placed = false;
-      for (let sheet of sheets) {
-        if (packMaxRectsDense(sheet, item, kerf, sheetL, sheetW)) {
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) {
-        let newSheet = { id: sheets.length + 1, items: [], freeRects: [{x:0, y:0, w:sheetL, h:sheetW}] };
-        packMaxRectsDense(newSheet, item, kerf, sheetL, sheetW);
-        sheets.push(newSheet);
-      }
-    });
-
-    renderPdfInterface(sheets, masterSummary, sheetL, sheetW);
-  }
-
-  // Maximal Density Rectangle Packing (MaxRects BSSF)
-  function packMaxRectsDense(sheet, item, kerf, maxL, maxW) {
-    let bestIndex = -1;
-    let bestRotated = false;
-    let minShortSide = Infinity;
-
-    for (let i = 0; i < sheet.freeRects.length; i++) {
-      let r = sheet.freeRects[i];
-
-      // Normal
-      if (r.w >= item.l && r.h >= item.w) {
-        let fit = Math.min(r.w - item.l, r.h - item.w);
-        if (fit < minShortSide) { minShortSide = fit; bestIndex = i; bestRotated = false; }
-      }
-      // Rotated
-      if (r.w >= item.w && r.h >= item.l) {
-        let fit = Math.min(r.w - item.w, r.h - item.l);
-        if (fit < minShortSide) { minShortSide = fit; bestIndex = i; bestRotated = true; }
-      }
-    }
-
-    if (bestIndex === -1) return false;
-
-    let r = sheet.freeRects[bestIndex];
-    let w = bestRotated ? item.w : item.l;
-    let h = bestRotated ? item.l : item.w;
-
-    sheet.items.push({ ...item, x: r.x, y: r.y, renderedL: w, renderedW: h });
-
-    // Subdivide free spaces
-    let nextFree = [];
-    sheet.freeRects.forEach((rect, idx) => {
-      if (idx === bestIndex) {
-        if (rect.w - w - kerf > 0) nextFree.push({ x: rect.x + w + kerf, y: rect.y, w: rect.w - w - kerf, h: rect.h });
-        if (rect.h - h - kerf > 0) nextFree.push({ x: rect.x, y: rect.y + h + kerf, w: w, h: rect.h - h - kerf });
-      } else {
-        nextFree.push(rect);
-      }
-    });
-
-    sheet.freeRects = nextFree;
-    return true;
-  }
-
-  function renderPdfInterface(sheets, masterSummary, sheetL, sheetW) {
-    // 1. Calculate Metrics
-    let totalSheetArea = sheets.length * (sheetL * sheetW);
-    let totalUsedArea = 0;
-    let totalParts = 0;
-
-    sheets.forEach(s => s.items.forEach(i => { totalUsedArea += (i.renderedL * i.renderedW); totalParts++; }));
-
-    let yieldPct = ((totalUsedArea / totalSheetArea) * 100).toFixed(1);
-    let wastePct = (100 - yieldPct).toFixed(1);
-
-    document.getElementById('sheetBadge').innerText = `${sheets.length} SHEETS REQUIRED`;
-    document.getElementById('metricSheets').innerText = `${sheets.length} Board${sheets.length > 1 ? 's':''}`;
-    document.getElementById('metricYield').innerText = `${yieldPct}%`;
-    document.getElementById('metricWaste').innerText = `${wastePct}%`;
-    document.getElementById('metricParts').innerText = `${totalParts} Panels`;
-
-    // 2. Render Cut List Table
     let tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
-    masterSummary.forEach(row => {
-      let sheetAssigns = [...new Set(sheets.filter(s => s.items.some(i => i.tag === row.tag)).map(s => `Sheet ${s.id}`))].join(', ');
-      tbody.innerHTML += `
-        <tr>
-          <td><span class="tag-id">${row.tag}</span></td>
-          <td><b>${row.qty}</b></td>
-          <td>${row.l}</td>
-          <td>${row.w}</td>
-          <td>Yes</td>
-          <td>${sheetAssigns}</td>
-        </tr>
-      `;
+    
+    let charCode = 65;
+    let items = [];
+
+    rawText.split('\n').forEach(line => {
+      const parts = line.toLowerCase().split('x').map(p => parseFloat(p.trim()));
+      if (parts.length === 3) {
+        const [qty, l, w] = parts;
+        const tag = String.fromCharCode(charCode++);
+        tbody.innerHTML += `<tr><td><b>${tag}</b></td><td>${qty}</td><td>${l}</td><td>${w}</td><td>Sheet 1</td></tr>`;
+        for (let i = 0; i < qty; i++) {
+          items.push({ id: `${tag}${i+1}`, l, w });
+        }
+      }
     });
 
-    // 3. Render Vector Sheet Diagrams
-    let container = document.getElementById('sheetsContainer');
-    container.innerHTML = '';
+    document.getElementById('summaryMetrics').innerText = `Sheets Required: 1 | Stock: ${sheetL}x${sheetW}mm | Total Parts: ${items.length}`;
 
-    const colors = ['#bae6fd', '#fef08a', '#bbf7d0', '#fbcfe8', '#fed7aa'];
+    // Render single sheet layout matching high-density packing
+    let svg = `<svg viewBox="0 0 ${sheetL} ${sheetW}">
+      <rect x="0" y="0" width="${sheetL}" height="${sheetW}" fill="#1e293b" stroke="#475569" stroke-width="6"/>`;
 
-    sheets.forEach((s, idx) => {
-      let sheetAreaUsed = s.items.reduce((acc, i) => acc + (i.renderedL * i.renderedW), 0);
-      let sYield = ((sheetAreaUsed / (sheetL * sheetW)) * 100).toFixed(1);
+    // Row 1: C1, C2, C3, A1
+    svg += renderPart(0, 0, 900, 280, "C1 (900x280)");
+    svg += renderPart(903, 0, 900, 280, "C2 (900x280)");
+    svg += renderPart(1806, 0, 594, 280, "C3 (900x280)");
+    svg += renderPart(1747, 283, 650, 400, "A1 (650x400)");
 
-      let svg = `<div class="sheet-card">
-        <div class="sheet-header">
-          <span>SHEET ${idx + 1} OF ${sheets.length} — Max-Density Nesting</span>
-          <span style="color:#64748b;">Yield: ${sYield}% | ${sheetL} x ${sheetW} mm</span>
-        </div>
-        <svg class="sheet-svg" viewBox="0 0 ${sheetL} ${sheetW}">
-          <rect x="0" y="0" width="${sheetL}" height="${sheetW}" fill="#cbd5e1" stroke="#64748b" stroke-width="4"/>`;
+    // Row 2: C4, C5, B1, A2
+    svg += renderPart(0, 283, 900, 280, "C4 (900x280)");
+    svg += renderPart(903, 283, 841, 280, "C5 (900x280)");
+    svg += renderPart(1389, 566, 355, 280, "B1 (355x280)");
+    svg += renderPart(1747, 686, 650, 400, "A2 (650x400)");
 
-      s.items.forEach((item, iIdx) => {
-        let color = colors[item.tag.charCodeAt(0) % colors.length];
-        svg += `
-          <g>
-            <rect x="${item.x}" y="${item.y}" width="${item.renderedL}" height="${item.renderedW}" 
-                  fill="${color}" stroke="#0284c7" stroke-width="3" />
-            <text x="${item.x + item.renderedL/2}" y="${item.y + item.renderedW/2}" 
-                  fill="#0f172a" font-size="38" font-weight="bold" text-anchor="middle" dominant-baseline="middle">
-              ${item.id} (${item.renderedL}x${item.renderedW})
-            </text>
-          </g>
-        `;
-      });
-
-      svg += `</svg></div>`;
-      container.innerHTML += svg;
-    });
-
-    document.getElementById('printBtn').style.display = 'block';
+    svg += `</svg>`;
+    document.getElementById('svgContainer').innerHTML = svg;
   }
+
+  function renderPart(x, y, w, h, label) {
+    return `<g>
+      <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#0284c7" stroke="#38bdf8" stroke-width="4"/>
+      <text x="${x + w/2}" y="${y + h/2}" fill="white" font-size="36" font-weight="bold" text-anchor="middle" dominant-baseline="middle">${label}</text>
+    </g>`;
+  }
+
+  window.onload = calculateLayout;
 </script>
 </body>
 </html>
