@@ -1,3 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Track Saw Nesting Optimizer</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --accent: #0284c7;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 12px; }
+    
+    .container { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 768px) { .container { grid-template-columns: 380px 1fr; } }
+
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+    h2 { font-size: 1.1rem; color: var(--text); margin-bottom: 12px; border-left: 4px solid var(--accent); padding-left: 8px; }
+
+    /* Inputs */
+    label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; }
+    input, textarea { width: 100%; background: #0f172a; border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; font-size: 0.95rem; margin-bottom: 12px; }
+    textarea { height: 110px; font-family: monospace; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    
+    button { width: 100%; background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+    button:active { opacity: 0.8; }
+
+    /* Summary Bar */
+    .summary-box { background: #0284c722; border: 1px solid var(--accent); border-radius: 6px; padding: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; font-weight: bold; }
+
+    /* SVG Canvas */
+    .sheet-wrapper { margin-bottom: 16px; }
+    .sheet-title { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
+    svg { width: 100%; height: auto; background: #1e293b; border: 2px solid var(--border); border-radius: 6px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- LEFT: CONTROLS & CUT LIST INPUT -->
+  <div class="panel">
+    <h2>1. Sheet Setup</h2>
+    <div class="grid-2">
+      <div>
+        <label>Length (mm)</label>
+        <input type="number" id="sheetL" value="2400">
+      </div>
+      <div>
+        <label>Width (mm)</label>
+        <input type="number" id="sheetW" value="1200">
+      </div>
+    </div>
+
+    <h2>2. Cutting List</h2>
+    <label>Paste list: <b>Qty x Length x Width</b></label>
+    <textarea id="cutListInput" placeholder="2 x 580 x 455&#10;1 x 220 x 655&#10;4 x 1100 x 300"></textarea>
+
+    <button onclick="processAndNest()">Calculate Nesting</button>
+  </div>
+
+  <!-- RIGHT: VISUAL DIAGRAM & SUMMARY -->
+  <div class="panel">
+    <h2>3. Sheet Layout & Sequence</h2>
+    
+    <div class="summary-box" id="summary">
+      <span>Sheets Required: -</span>
+      <span>Yield: -</span>
+    </div>
+
+    <div id="sheetsContainer"></div>
+  </div>
+</div>
+
 <script>
   function processAndNest() {
     const sheetL = parseFloat(document.getElementById('sheetL').value);
@@ -91,7 +171,7 @@
     sheet.freeRects.forEach((r, idx) => {
       if (idx === bestRectIndex) {
         if (r.w - w - kerf > 0) newFree.push({ x: r.x + w + kerf, y: r.y, w: r.w - w - kerf, h: r.h });
-        if (r.h - h - kerf > 0) newFree.push({ x: r.x, y: r.y + h + kerf, w: w, h: r.h - h - kerf });
+        if (r.h - h - kerf > 0) newFree.push({ x: r.x, y: r.y, w: w, h: r.h - h - kerf });
       } else {
         newFree.push(r);
       }
@@ -134,3 +214,5 @@
     });
   }
 </script>
+</body>
+</html>
