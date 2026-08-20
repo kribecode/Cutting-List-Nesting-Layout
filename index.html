@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Track Saw Nesting Optimizer</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --accent: #0284c7;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --border: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 12px; }
+    
+    .container { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 768px) { .container { grid-template-columns: 380px 1fr; } }
+
+    .panel { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+    h2 { font-size: 1.1rem; color: var(--text); margin-bottom: 12px; border-left: 4px solid var(--accent); padding-left: 8px; }
+
+    /* Inputs */
+    label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; }
+    input, textarea { width: 100%; background: #0f172a; border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 6px; font-size: 0.95rem; margin-bottom: 12px; }
+    textarea { height: 110px; font-family: monospace; }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    
+    button { width: 100%; background: var(--accent); color: white; border: none; padding: 12px; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+    button:active { opacity: 0.8; }
+
+    /* Summary Bar */
+    .summary-box { background: #0284c722; border: 1px solid var(--accent); border-radius: 6px; padding: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; font-weight: bold; }
+
+    /* SVG Canvas */
+    .sheet-wrapper { margin-bottom: 16px; }
+    .sheet-title { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px; }
+    svg { width: 100%; height: auto; background: #1e293b; border: 2px solid var(--border); border-radius: 6px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- LEFT: CONTROLS & CUT LIST INPUT -->
+  <div class="panel">
+    <h2>1. Sheet Setup</h2>
+    <div class="grid-2">
+      <div>
+        <label>Length (mm)</label>
+        <input type="number" id="sheetL" value="2400">
+      </div>
+      <div>
+        <label>Width (mm)</label>
+        <input type="number" id="sheetW" value="1200">
+      </div>
+    </div>
+
+    <h2>2. Cutting List</h2>
+    <label>Paste list: <b>Qty x Length x Width</b></label>
+    <textarea id="cutListInput" placeholder="2 x 580 x 455&#10;1 x 220 x 655&#10;4 x 1100 x 300"></textarea>
+
+    <button onclick="processAndNest()">Calculate Nesting</button>
+  </div>
+
+  <!-- RIGHT: VISUAL DIAGRAM & SUMMARY -->
+  <div class="panel">
+    <h2>3. Sheet Layout & Sequence</h2>
+    
+    <div class="summary-box" id="summary">
+      <span>Sheets Required: -</span>
+      <span>Yield: -</span>
+    </div>
+
+    <div id="sheetsContainer"></div>
+  </div>
+</div>
+
+<script>
+  function processAndNest() {
+    const sheetL = parseFloat(document.getElementById('sheetL').value);
+    const sheetW = parseFloat(document.getElementById('sheetW').value);
+    const rawText = document.getElementById('cutListInput').value.trim();
+
+    if (!rawText) return alert("Please enter a cut list!");
+
+    // 1. Parse Copy/Pasted Input: Qty x Length x Width
+    const lines = rawText.split('\n');
+    let items = [];
+    let charCode = 65; // 'A'
+
+    lines.forEach((line) => {
+      const parts = line.toLowerCase().split('x').map(p => parseFloat(p.trim()));
+      if (parts.length === 3 && !parts.some(isNaN)) {
+        const [qty, l, w] = parts;
+        const id = String.fromCharCode(charCode++);
+        for (let i = 0; i < qty; i++) {
+          items.push({ id: `${id}${i+1}`, tag: id, l, w });
+        }
+      }
+    });
+
+    // Sort items by size (largest area first for optimal nesting)
+    items.sort((a, b) => (b.l * b.w) - (a.l * a.w));
+
+    // 2. Simple Bin Packing Logic
+    const kerf = 3;
+    let sheets = [];
+
+    items.forEach(item => {
+      let placed = false;
+
+      for (let s of sheets) {
+        if (tryPlace(s, item, kerf, sheetL, sheetW)) {
+          placed = true;
+          break;
+        }
+      }
+
+      if (!placed) {
+        let newSheet = { id: sheets.length + 1, items: [], freeSpaceX: 0, freeSpaceY: 0 };
+        tryPlace(newSheet, item, kerf, sheetL, sheetW);
+        sheets.push(newSheet);
+      }
+    });
+
+    renderUI(sheets, sheetL, sheetW);
+  }
+
+  function tryPlace(sheet, item, kerf, maxL, maxW) {
+    // Basic Shelf-Packing Simulation
+    if (!sheet.cursorX) { sheet.cursorX = 0; sheet.cursorY = 0; sheet.rowH = 0; }
+
+    let w = item.w, l = item.l;
+    
+    // Auto-rotate if it fits better
+    if (sheet.cursorX + l > maxL && sheet.cursorX + w <= maxL) {
+      [l, w] = [w, l];
+    }
+
+    if (sheet.cursorX + l <= maxL && sheet.cursorY + w <= maxW) {
+      sheet.items.push({ ...item, x: sheet.cursorX, y: sheet.cursorY, renderedL: l, renderedW: w });
+      sheet.cursorX += l + kerf;
+      sheet.rowH = Math.max(sheet.rowH, w + kerf);
+      return true;
+    } else if (sheet.cursorY + sheet.rowH + w <= maxW && l <= maxL) {
+      sheet.cursorX = 0;
+      sheet.cursorY += sheet.rowH;
+      sheet.rowH = w + kerf;
+      sheet.items.push({ ...item, x: sheet.cursorX, y: sheet.cursorY, renderedL: l, renderedW: w });
+      sheet.cursorX += l + kerf;
+      return true;
+    }
+    return false;
+  }
+
+  function renderUI(sheets, maxL, maxW) {
+    document.getElementById('summary').innerHTML = `
+      <span>Sheets Required: ${sheets.length}</span>
+      <span>Stock Size: ${maxL}x${maxW}mm</span>
+    `;
+
+    const container = document.getElementById('sheetsContainer');
+    container.innerHTML = '';
+
+    sheets.forEach((s, idx) => {
+      let svgHTML = `<div class="sheet-wrapper">
+        <div class="sheet-title">SHEET ${idx + 1} OF ${sheets.length}</div>
+        <svg viewBox="0 0 ${maxL} ${maxW}">
+          <rect x="0" y="0" width="${maxL}" height="${maxW}" fill="#334155" />`;
+
+      s.items.forEach((item, itemIdx) => {
+        svgHTML += `
+          <g>
+            <rect x="${item.x}" y="${item.y}" width="${item.renderedL}" height="${item.renderedW}" 
+                  fill="#0284c7" stroke="#38bdf8" stroke-width="4" />
+            <text x="${item.x + item.renderedL/2}" y="${item.y + item.renderedW/2}" 
+                  fill="white" font-size="45" font-weight="bold" text-anchor="middle" dominant-baseline="middle">
+              ${item.id} (${item.renderedL}x${item.renderedW})
+            </text>
+          </g>
+        `;
+      });
+
+      svgHTML += `</svg></div>`;
+      container.innerHTML += svgHTML;
+    });
+  }
+</script>
+</body>
+</html>
