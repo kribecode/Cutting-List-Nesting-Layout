@@ -58,7 +58,10 @@
 
     .sheet-card { background: white; border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 16px; page-break-inside: avoid; }
     .sheet-header { display: flex; justify-content: space-between; font-size: 9.5pt; font-weight: 700; margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid #e2e8f0; }
-    .sheet-svg { width: 100%; height: auto; border: 1px solid #94a3b8; background: #f1f5f9; display: block; border-radius: 4px; }
+    
+    .sheet-svg { width: 100%; height: auto; border: 1px solid #94a3b8; background: #f8fafc; display: block; border-radius: 4px; touch-action: none; user-select: none; }
+    .draggable-panel { cursor: grab; }
+    .draggable-panel:active { cursor: grabbing; filter: drop-shadow(0 8px 12px rgba(0,0,0,0.25)); }
 
     @media print {
       .no-print { display: none !important; }
@@ -102,7 +105,7 @@
 
     <div class="section-title" style="margin-top: 10px;">2. Master Cut List</div>
     <label>Format: <b>Qty x Length x Width</b></label>
-    <textarea id="cutListInput" placeholder="Paste: Qty x Length x Width&#10;Example:&#10;5 x 900 x 280&#10;2 x 650 x 400"></textarea>
+    <textarea id="cutListInput" placeholder="Paste: Qty x Length x Width&#10;Example:&#10;3 x 1200 x 600&#10;2 x 580 x 600&#10;3 x 450 x 380&#10;2 x 355 x 600"></textarea>
 
     <button onclick="calculateDynamicNesting()">Calculate Nesting Layout</button>
     <button class="btn-pdf" id="printBtn" onclick="window.print()">Download PDF Cut Plan</button>
@@ -113,7 +116,7 @@
     <div class="header-bar">
       <div>
         <div class="header-title">Plywood Nesting & Cut Plan</div>
-        <div class="header-sub" id="subTitleText">Optimized Track Saw Bin-Packing Engine</div>
+        <div class="header-sub" id="subTitleText">Optimized Interactive Cut Plan Engine</div>
       </div>
       <div>
         <span class="badge-tag" id="sheetBadge">0 SHEETS</span>
@@ -156,7 +159,7 @@
       </tbody>
     </table>
 
-    <div class="section-title">Sheet Diagrams</div>
+    <div class="section-title">Sheet Diagrams (Drag & Drop Panels to Adjust)</div>
     <div id="sheetsContainer">
       <div style="text-align:center; padding: 40px; border: 2px dashed #cbd5e1; border-radius: 8px; color: #94a3b8;">
         No cuts generated yet.
@@ -168,6 +171,12 @@
 </div>
 
 <script>
+  let currentSheets = [];
+  let masterSummaryCache = [];
+  let draggedItem = null;
+  let dragOffset = { x: 0, y: 0 };
+  let activeSvg = null;
+
   function calculateDynamicNesting() {
     const sheetL = parseFloat(document.getElementById('sheetL').value);
     const sheetW = parseFloat(document.getElementById('sheetW').value);
@@ -181,14 +190,14 @@
 
     let items = [];
     let charCode = 65;
-    let masterSummary = [];
+    masterSummaryCache = [];
 
     rawText.split('\n').forEach(line => {
       const parts = line.toLowerCase().split('x').map(p => parseFloat(p.trim()));
       if (parts.length === 3 && !parts.some(isNaN)) {
         const [qty, l, w] = parts;
         const tag = String.fromCharCode(charCode++);
-        masterSummary.push({ tag, qty, l, w });
+        masterSummaryCache.push({ tag, qty, l, w });
         for (let i = 0; i < qty; i++) {
           items.push({ id: `${tag}${i+1}`, tag, l, w, area: l * w });
         }
@@ -197,25 +206,26 @@
 
     if (items.length === 0) return alert("Invalid list format. Use: Qty x Length x Width");
 
-    items.sort((a, b) => b.area - a.area);
+    // Primary sort prioritizes size/group matching to form square offcut columns
+    items.sort((a, b) => (b.w * 10000 + b.l) - (a.w * 10000 + a.l));
 
-    let sheets = [];
+    currentSheets = [];
     items.forEach(item => {
       let placed = false;
-      for (let sheet of sheets) {
+      for (let sheet of currentSheets) {
         if (packMaxRects(sheet, item, kerf, sheetL, sheetW, allowRotation)) {
           placed = true;
           break;
         }
       }
       if (!placed) {
-        let newSheet = { id: sheets.length + 1, items: [], freeRects: [{x:0, y:0, w:sheetL, h:sheetW}] };
+        let newSheet = { id: currentSheets.length + 1, items: [], freeRects: [{x:0, y:0, w:sheetL, h:sheetW}] };
         packMaxRects(newSheet, item, kerf, sheetL, sheetW, allowRotation);
-        sheets.push(newSheet);
+        currentSheets.push(newSheet);
       }
     });
 
-    renderCompleteInterface(sheets, masterSummary, sheetL, sheetW);
+    renderUI();
   }
 
   function packMaxRects(sheet, item, kerf, maxL, maxW, allowRotation) {
@@ -258,26 +268,28 @@
     return true;
   }
 
-  function renderCompleteInterface(sheets, masterSummary, sheetL, sheetW) {
-    let totalSheetArea = sheets.length * (sheetL * sheetW);
+  function renderUI() {
+    const sheetL = parseFloat(document.getElementById('sheetL').value);
+    const sheetW = parseFloat(document.getElementById('sheetW').value);
+    let totalSheetArea = currentSheets.length * (sheetL * sheetW);
     let totalUsedArea = 0;
     let totalParts = 0;
 
-    sheets.forEach(s => s.items.forEach(i => { totalUsedArea += (i.renderedL * i.renderedW); totalParts++; }));
+    currentSheets.forEach(s => s.items.forEach(i => { totalUsedArea += (i.renderedL * i.renderedW); totalParts++; }));
 
     let yieldPct = ((totalUsedArea / totalSheetArea) * 100).toFixed(1);
     let wastePct = (100 - yieldPct).toFixed(1);
 
-    document.getElementById('sheetBadge').innerText = `${sheets.length} SHEET${sheets.length > 1 ? 'S':''} REQUIRED`;
-    document.getElementById('metricSheets').innerText = `${sheets.length} Board${sheets.length > 1 ? 's':''}`;
+    document.getElementById('sheetBadge').innerText = `${currentSheets.length} SHEET${currentSheets.length > 1 ? 'S':''} REQUIRED`;
+    document.getElementById('metricSheets').innerText = `${currentSheets.length} Board${currentSheets.length > 1 ? 's':''}`;
     document.getElementById('metricYield').innerText = `${yieldPct}%`;
     document.getElementById('metricWaste').innerText = `${wastePct}%`;
     document.getElementById('metricParts').innerText = `${totalParts} Panels`;
 
     let tbody = document.getElementById('tableBody');
     tbody.innerHTML = '';
-    masterSummary.forEach(row => {
-      let sheetAssigns = [...new Set(sheets.filter(s => s.items.some(i => i.tag === row.tag)).map(s => `Sheet ${s.id}`))].join(', ');
+    masterSummaryCache.forEach(row => {
+      let sheetAssigns = [...new Set(currentSheets.filter(s => s.items.some(i => i.tag === row.tag)).map(s => `Sheet ${s.id}`))].join(', ');
       tbody.innerHTML += `
         <tr>
           <td><span class="tag-badge">${row.tag}</span></td>
@@ -295,26 +307,26 @@
 
     const colors = ['#bae6fd', '#fef08a', '#bbf7d0', '#fbcfe8', '#fed7aa'];
 
-    sheets.forEach((s, idx) => {
+    currentSheets.forEach((s, idx) => {
       let sheetAreaUsed = s.items.reduce((acc, i) => acc + (i.renderedL * i.renderedW), 0);
       let sYield = ((sheetAreaUsed / (sheetL * sheetW)) * 100).toFixed(1);
 
       let svg = `<div class="sheet-card">
         <div class="sheet-header">
-          <span>SHEET ${idx + 1} OF ${sheets.length} — Cut Layout Plan</span>
+          <span>SHEET ${idx + 1} OF ${currentSheets.length} — Interactive Layout</span>
           <span style="color:#64748b;">Yield: ${sYield}% | Dimensions: ${sheetL} x ${sheetW} mm</span>
         </div>
-        <svg class="sheet-svg" viewBox="0 0 ${sheetL} ${sheetW}">
+        <svg class="sheet-svg" data-sheet-idx="${idx}" viewBox="0 0 ${sheetL} ${sheetW}">
           <rect x="0" y="0" width="${sheetL}" height="${sheetW}" fill="#f8fafc" stroke="#94a3b8" stroke-width="4"/>`;
 
       s.items.forEach((item) => {
         let color = colors[item.tag.charCodeAt(0) % colors.length];
         svg += `
-          <g>
+          <g class="draggable-panel" data-item-id="${item.id}" data-sheet-idx="${idx}">
             <rect x="${item.x}" y="${item.y}" width="${item.renderedL}" height="${item.renderedW}" 
                   fill="${color}" stroke="#0284c7" stroke-width="3" />
             <text x="${item.x + item.renderedL/2}" y="${item.y + item.renderedW/2}" 
-                  fill="#0f172a" font-size="36" font-weight="bold" text-anchor="middle" dominant-baseline="middle">
+                  fill="#0f172a" font-size="34" font-weight="bold" text-anchor="middle" dominant-baseline="middle">
               ${item.id} (${item.renderedL}x${item.renderedW})
             </text>
           </g>
@@ -326,6 +338,72 @@
     });
 
     document.getElementById('printBtn').style.display = 'block';
+    attachDragAndDrop();
+  }
+
+  function attachDragAndDrop() {
+    document.querySelectorAll('.draggable-panel').forEach(panel => {
+      panel.addEventListener('pointerdown', startDrag);
+    });
+  }
+
+  function startDrag(e) {
+    e.preventDefault();
+    const group = e.currentTarget;
+    const itemId = group.getAttribute('data-item-id');
+    const sheetIdx = parseInt(group.getAttribute('data-sheet-idx'));
+    
+    activeSvg = group.closest('svg');
+    const svgPoint = getSvgCoordinates(activeSvg, e.clientX, e.clientY);
+
+    draggedItem = currentSheets[sheetIdx].items.find(i => i.id === itemId);
+    if (!draggedItem) return;
+
+    dragOffset.x = svgPoint.x - draggedItem.x;
+    dragOffset.y = svgPoint.y - draggedItem.y;
+
+    window.addEventListener('pointermove', onDrag);
+    window.addEventListener('pointerup', endDrag);
+  }
+
+  function onDrag(e) {
+    if (!draggedItem || !activeSvg) return;
+
+    const svgPoint = getSvgCoordinates(activeSvg, e.clientX, e.clientY);
+    const sheetL = parseFloat(document.getElementById('sheetL').value);
+    const sheetW = parseFloat(document.getElementById('sheetW').value);
+
+    // Keep dragged item within sheet bounds
+    let newX = Math.max(0, Math.min(sheetL - draggedItem.renderedL, svgPoint.x - dragOffset.x));
+    let newY = Math.max(0, Math.min(sheetW - draggedItem.renderedW, svgPoint.y - dragOffset.y));
+
+    draggedItem.x = Math.round(newX);
+    draggedItem.y = Math.round(newY);
+
+    const group = activeSvg.querySelector(`[data-item-id="${draggedItem.id}"]`);
+    if (group) {
+      const rect = group.querySelector('rect');
+      const text = group.querySelector('text');
+      rect.setAttribute('x', draggedItem.x);
+      rect.setAttribute('y', draggedItem.y);
+      text.setAttribute('x', draggedItem.x + draggedItem.renderedL / 2);
+      text.setAttribute('y', draggedItem.y + draggedItem.renderedW / 2);
+    }
+  }
+
+  function endDrag() {
+    window.removeEventListener('pointermove', onDrag);
+    window.removeEventListener('pointerup', endDrag);
+    draggedItem = null;
+    activeSvg = null;
+    renderUI(); // Re-calc yields and sheet list tables live
+  }
+
+  function getSvgCoordinates(svg, clientX, clientY) {
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse());
   }
 </script>
 </body>
