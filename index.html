@@ -58,8 +58,9 @@
     .draggable-panel { cursor: grab; }
     .draggable-panel:active { cursor: grabbing; }
 
+    /* Hazard warning styling */
     .hazard-fill { fill: url(#hazardPattern) !important; stroke: #dc2626 !important; stroke-width: 4px !important; }
-    .hazard-badge { display: none; background: #ef4444; color: white; padding: 4px 8px; border-radius: 4px; font-size: 8pt; font-weight: bold; margin-left: 8px; }
+    .hazard-badge { background: #ef4444; color: white; padding: 4px 8px; border-radius: 4px; font-size: 8pt; font-weight: bold; margin-left: 8px; }
 
     @media print {
       .no-print { display: none !important; }
@@ -184,7 +185,7 @@
   let sourceSheetIdx = null;
   let targetSheetIdx = null;
   let dragOffset = { x: 0, y: 0 };
-  const SNAP_THRESHOLD = 25;
+  const SNAP_THRESHOLD = 30; // Snapping distance threshold in mm
 
   function calculateDynamicNesting() {
     const sheetL = parseFloat(document.getElementById('sheetL').value);
@@ -222,7 +223,6 @@
 
     if (items.length === 0) return alert("Invalid list format. Use: Qty x Length x Width x Optional Label");
 
-    // Sorting incorporating cut direction preference
     items.sort((a, b) => {
       if (cutDirection === 'horizontal') {
         return (b.w * 10000 + b.l) - (a.w * 10000 + a.l);
@@ -281,11 +281,9 @@
     sheet.freeRects.forEach((rect, idx) => {
       if (idx === bestIndex) {
         if (cutDirection === 'horizontal') {
-          // Guillotine horizontal split preference (Rip Cuts First)
           if (rect.w - w - kerf > 0) nextFree.push({ x: rect.x + w + kerf, y: rect.y, w: rect.w - w - kerf, h: rect.h });
           if (rect.h - h - kerf > 0) nextFree.push({ x: rect.x, y: rect.y + h + kerf, w: w, h: rect.h - h - kerf });
         } else {
-          // Guillotine vertical split preference (Cross Cuts First)
           if (rect.h - h - kerf > 0) nextFree.push({ x: rect.x, y: rect.y + h + kerf, w: rect.w, h: rect.h - h - kerf });
           if (rect.w - w - kerf > 0) nextFree.push({ x: rect.x + w + kerf, y: rect.y, w: rect.w - w - kerf, h: h });
         }
@@ -298,6 +296,7 @@
     return true;
   }
 
+  // Conflict and kerf-violation checking algorithm
   function checkAllKerfConflicts() {
     const kerf = parseFloat(document.getElementById('kerf').value) || 0;
     const sheetL = parseFloat(document.getElementById('sheetL').value);
@@ -309,10 +308,12 @@
       for (let i = 0; i < sheet.items.length; i++) {
         let a = sheet.items[i];
 
+        // Out-of-bounds hazard check
         if (a.x < 0 || a.y < 0 || (a.x + a.renderedL) > sheetL || (a.y + a.renderedW) > sheetW) {
           a.hasConflict = true;
         }
 
+        // Inter-panel kerf buffer collision check
         for (let j = i + 1; j < sheet.items.length; j++) {
           let b = sheet.items[j];
 
@@ -326,6 +327,51 @@
         }
       }
     });
+  }
+
+  // Snapping algorithm: snaps panel edges and accounts for saw kerf spacing
+  function getSnappedCoordinates(x, y, item, sheetIdx) {
+    const kerf = parseFloat(document.getElementById('kerf').value) || 0;
+    const sheetL = parseFloat(document.getElementById('sheetL').value);
+    const sheetW = parseFloat(document.getElementById('sheetW').value);
+
+    let snapX = x;
+    let snapY = y;
+
+    // Snap to outer board edges
+    if (Math.abs(x) < SNAP_THRESHOLD) snapX = 0;
+    if (Math.abs(x + item.renderedL - sheetL) < SNAP_THRESHOLD) snapX = sheetL - item.renderedL;
+    if (Math.abs(y) < SNAP_THRESHOLD) snapY = 0;
+    if (Math.abs(y + item.renderedW - sheetW) < SNAP_THRESHOLD) snapY = sheetW - item.renderedW;
+
+    // Snap against neighboring panels (+/- kerf)
+    currentSheets[sheetIdx].items.forEach(other => {
+      if (other.id === item.id) return;
+
+      let xTargets = [
+        other.x + other.renderedL + kerf, // Right side of neighbor + kerf
+        other.x - item.renderedL - kerf,  // Left side of neighbor - kerf
+        other.x,                           // Flush left
+        other.x + other.renderedL - item.renderedL // Flush right
+      ];
+
+      xTargets.forEach(targetX => {
+        if (Math.abs(x - targetX) < SNAP_THRESHOLD) snapX = targetX;
+      });
+
+      let yTargets = [
+        other.y + other.renderedW + kerf, // Bottom side of neighbor + kerf
+        other.y - item.renderedW - kerf,  // Top side of neighbor - kerf
+        other.y,                           // Flush top
+        other.y + other.renderedW - item.renderedW // Flush bottom
+      ];
+
+      yTargets.forEach(targetY => {
+        if (Math.abs(y - targetY) < SNAP_THRESHOLD) snapY = targetY;
+      });
+    });
+
+    return { x: Math.round(snapX), y: Math.round(snapY) };
   }
 
   function renderUI() {
@@ -398,11 +444,11 @@
           <g class="draggable-panel" data-item-id="${item.id}" data-sheet-idx="${idx}">
             <rect class="${conflictClass}" x="${item.x}" y="${item.y}" width="${item.renderedL}" height="${item.renderedW}" 
                   fill="${color}" stroke="#0284c7" stroke-width="3" />
-            <text x="${item.x + item.renderedL/2}" y="${item.y + item.renderedW/2 - 10}" 
+            <text class="panel-text-label" x="${item.x + item.renderedL/2}" y="${item.y + item.renderedW/2 - 10}" 
                   fill="${item.hasConflict ? '#991b1b' : '#0f172a'}" font-size="32" font-weight="bold" text-anchor="middle" dominant-baseline="middle">
               ${item.id}: ${item.label}
             </text>
-            <text x="${item.x + item.renderedL/2}" y="${item.y + item.renderedW/2 + 22}" 
+            <text class="panel-text-dims" x="${item.x + item.renderedL/2}" y="${item.y + item.renderedW/2 + 22}" 
                   fill="${item.hasConflict ? '#991b1b' : '#475569'}" font-size="26" font-weight="600" text-anchor="middle" dominant-baseline="middle">
               (${item.renderedL} x ${item.renderedW} mm)
             </text>
@@ -447,6 +493,7 @@
   function onDrag(e) {
     if (!draggedItem) return;
 
+    // Cross-sheet detection
     let elemBelow = document.elementFromPoint(e.clientX, e.clientY);
     let targetSvg = elemBelow ? elemBelow.closest('svg') : null;
 
@@ -468,67 +515,44 @@
     let rawX = svgPoint.x - dragOffset.x;
     let rawY = svgPoint.y - dragOffset.y;
 
+    // Apply Snapping + Kerf offset
     let snappedPos = getSnappedCoordinates(rawX, rawY, draggedItem, targetSheetIdx);
     draggedItem.x = snappedPos.x;
     draggedItem.y = snappedPos.y;
 
+    // Real-time Hazard Collision Detection
     checkAllKerfConflicts();
     
+    // Live update UI elements
     const group = activeSvg.querySelector(`[data-item-id="${draggedItem.id}"]`);
     if (group) {
       const rect = group.querySelector('rect');
-      const texts = group.querySelectorAll('text');
+      const textLabel = group.querySelector('.panel-text-label');
+      const textDims = group.querySelector('.panel-text-dims');
+
       rect.setAttribute('x', draggedItem.x);
       rect.setAttribute('y', draggedItem.y);
       rect.className.baseVal = draggedItem.hasConflict ? 'hazard-fill' : '';
       
-      texts[0].setAttribute('x', draggedItem.x + draggedItem.renderedL / 2);
-      texts[0].setAttribute('y', draggedItem.y + draggedItem.renderedW / 2 - 10);
-      texts[1].setAttribute('x', draggedItem.x + draggedItem.renderedL / 2);
-      texts[1].setAttribute('y', draggedItem.y + draggedItem.renderedW / 2 + 22);
+      if (textLabel) {
+        textLabel.setAttribute('x', draggedItem.x + draggedItem.renderedL / 2);
+        textLabel.setAttribute('y', draggedItem.y + draggedItem.renderedW / 2 - 10);
+        textLabel.setAttribute('fill', draggedItem.hasConflict ? '#991b1b' : '#0f172a');
+      }
+      if (textDims) {
+        textDims.setAttribute('x', draggedItem.x + draggedItem.renderedL / 2);
+        textDims.setAttribute('y', draggedItem.y + draggedItem.renderedW / 2 + 22);
+        textDims.setAttribute('fill', draggedItem.hasConflict ? '#991b1b' : '#475569');
+      }
     }
-  }
 
-  function getSnappedCoordinates(x, y, item, sheetIdx) {
-    const kerf = parseFloat(document.getElementById('kerf').value) || 0;
-    const sheetL = parseFloat(document.getElementById('sheetL').value);
-    const sheetW = parseFloat(document.getElementById('sheetW').value);
-
-    let snapX = x;
-    let snapY = y;
-
-    if (Math.abs(x) < SNAP_THRESHOLD) snapX = 0;
-    if (Math.abs(x + item.renderedL - sheetL) < SNAP_THRESHOLD) snapX = sheetL - item.renderedL;
-    if (Math.abs(y) < SNAP_THRESHOLD) snapY = 0;
-    if (Math.abs(y + item.renderedW - sheetW) < SNAP_THRESHOLD) snapY = sheetW - item.renderedW;
-
-    currentSheets[sheetIdx].items.forEach(other => {
-      if (other.id === item.id) return;
-
-      let xTargets = [
-        other.x + other.renderedL + kerf,
-        other.x - item.renderedL - kerf,
-        other.x,
-        other.x + other.renderedL - item.renderedL
-      ];
-
-      xTargets.forEach(targetX => {
-        if (Math.abs(x - targetX) < SNAP_THRESHOLD) snapX = targetX;
-      });
-
-      let yTargets = [
-        other.y + other.renderedW + kerf,
-        other.y - item.renderedW - kerf,
-        other.y,
-        other.y + other.renderedW - item.renderedW
-      ];
-
-      yTargets.forEach(targetY => {
-        if (Math.abs(y - targetY) < SNAP_THRESHOLD) snapY = targetY;
-      });
-    });
-
-    return { x: Math.round(snapX), y: Math.round(snapY) };
+    // Toggle board warning badge dynamically
+    const card = activeSvg.closest('.sheet-card');
+    if (card) {
+      const badge = card.querySelector('.hazard-badge');
+      const sheetHasConflicts = currentSheets[targetSheetIdx].items.some(i => i.hasConflict);
+      if (badge) badge.style.display = sheetHasConflicts ? 'inline-block' : 'none';
+    }
   }
 
   function endDrag() {
